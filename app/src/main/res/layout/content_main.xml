@@ -57,11 +57,16 @@
         android:layout_width="145dp"
         android:layout_height="184dp"
         android:layout_marginBottom="44dp"
+        android:scrollIndicators="right"
+        android:scrollbarAlwaysDrawVerticalTrack="true"
+        android:scrollbarStyle="insideInset"
+        android:scrollbars="vertical"
         android:text="TextView"
         android:textSize="8sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/editText" />
 
     <TextView
         android:id="@+id/textViewLog"
@@ -70,7 +75,7 @@
         android:layout_marginTop="16dp"
         android:text="TextView"
         android:textColor="#FF5722"
-        android:textSize="18sp"
+        android:textSize="15sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -80,15 +85,13 @@
         android:id="@+id/editText"
         android:layout_width="366dp"
         android:layout_height="45dp"
-        android:layout_marginBottom="20dp"
+        android:layout_marginTop="20dp"
         android:ems="10"
         android:inputType="textPersonName"
         android:text="Note"
-        app:layout_constraintBottom_toTopOf="@+id/textViewState"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.511"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textViewLog"
-        app:layout_constraintVertical_bias="1.0" />
+        app:layout_constraintTop_toBottomOf="@+id/textViewLog" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -35,6 +35,7 @@ import org.json.JSONObject;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
+import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
@@ -72,7 +73,8 @@ public class MainActivity extends AppCompatActivity {
     long basetime_global;
     MyLogger myLogger;
     boolean isLogging;
-    boolean isUploaded;
+    String uploadState = "None";
+    String globalinfo = "None";
     String logname;
 
     @Override
@@ -94,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
         this.basetime = this.getTime();
         this.myLogger = new MyLogger();
         this.isLogging = false;
-        isUploaded = false;
+        uploadState = "Not Synced";
 
         // Text view
 
@@ -126,11 +128,12 @@ public class MainActivity extends AppCompatActivity {
                 //myLogger.newLog();
                 //logname = getDate();
                 isLogging = false;
-                isUploaded = false;
+                uploadState = "Not Synced";
             }
         });
 
         final RequestQueue MyRequestQueue = Volley.newRequestQueue(this);
+
         buttonupload.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
 
@@ -146,6 +149,7 @@ public class MainActivity extends AppCompatActivity {
 
 
                 try {
+                    jo.put("cmd", "save");
                     jo.put("name", logname);
                     jo.put( "basetime", basetime_global);
                     jo.put("note", editText.getText().toString());
@@ -153,6 +157,18 @@ public class MainActivity extends AppCompatActivity {
 
                 }
 
+                // save to local internal storage
+                String filename = logname;
+                String fileContents = jo.toString();
+                try {
+                    FileOutputStream fos = getApplicationContext().openFileOutput(filename, Context.MODE_PRIVATE);
+                    fos.write(fileContents.getBytes());
+                } catch (Exception e) {
+
+                }
+
+
+                uploadState = "Syncing...";
                 JsonObjectRequest req = new JsonObjectRequest(Request.Method.POST, "http://18.26.2.99:8008", jo,
                 new Response.Listener<JSONObject>() {
                     @Override
@@ -160,13 +176,14 @@ public class MainActivity extends AppCompatActivity {
                         //This code is executed if the server responds, whether or not the response contains data.
                         //The String 'response' contains the server's response.
                         //Log.v("onResponse",response);
+                        uploadState = "Synced!";
                     }
                 }, new Response.ErrorListener() { //Create an error listener to handle errors appropriately.
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         //This code is executed if there is an error.
                         Log.v("onError",error.toString());
-                        isUploaded = true;
+                        uploadState = "Synced with error return";
                     }
                 });
 
@@ -179,16 +196,69 @@ public class MainActivity extends AppCompatActivity {
 
         buttoncheck.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                String s = myLogger.getFreqStr();
-                state_text.setText(s);
-                Log.v("hst sensor data",s);
-                //String s2 = "";
-                for (int i=0; i<myLogger.loglist.size();i++) {
-                    //s2 = s2 + myLogger.loglist.get(i) + "\n";
-                    if (i % 10 ==0) {
-                        Log.v("hst sensor data",myLogger.loglist.get(i));
+                final String[] files = getApplicationContext().fileList();
+
+                String s = "";
+                for (int i=0;i<files.length;i++) {
+                    Log.v("hstcheckfilelist", files[i]);
+                    if (i < files.length-5) {
+                        s += i + ": "+ files[i]+"\n";
                     }
                 }
+
+                log_text.setText(s);
+
+                // talk to server to get a list
+                JSONObject jo = new JSONObject();
+                try {
+                    jo.put("cmd", "getlist");
+                } catch (Exception e) {
+
+                }
+
+                JsonObjectRequest req = new JsonObjectRequest(Request.Method.POST, "http://18.26.2.99:8008", jo,
+                        new Response.Listener<JSONObject>() {
+                            @Override
+                            public void onResponse(JSONObject response) {
+                            try {
+                                JSONArray ja = response.getJSONArray("filelist");
+                                Hashtable filemap = new Hashtable();
+                                //JSONParser parser = new JSONParser();
+
+                                for (int i = 0; i < ja.length(); i++ ) {
+                                    filemap.put(ja.getString(i), "exist");
+                                }
+
+                                String unsync_s = "";
+                                for (int i=0;i<files.length;i++) {
+                                    if (filemap.containsKey(files[i]) == false) {
+                                        // need to sync
+                                        unsync_s += files[i] + " (not synced)\n";
+
+                                        // load the file
+                                    } else {
+                                        unsync_s += files[i] + " (synced)\n";
+                                    }
+                                }
+                                log_text.setText(unsync_s);
+
+
+                            } catch (Exception e) {
+
+                            }
+                            }
+                        }, new Response.ErrorListener() { //Create an error listener to handle errors appropriately.
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        //This code is executed if there is an error.
+                        Log.v("onError",error.toString());
+                    }
+                });
+
+                MyRequestQueue.add(req);
+
+
+
 
                 //myLogger.newLog();
                 //logname = getDate();
@@ -228,14 +298,19 @@ public class MainActivity extends AppCompatActivity {
         SensorManager mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 
         Sensor sensor1 = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        Sensor sensor1b = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        Sensor sensor1c = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         Sensor sensor2 = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         Sensor sensor3 = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        //Sensor sensor4 = mSensorManager.getDefaultSensor(Sensor.);
 
         SensorEventListener sensorEventListener = new MySensorListener();
 
         ((MySensorListener) sensorEventListener).mMainActivity = this;
 
         mSensorManager.registerListener(sensorEventListener, sensor1, 10000);
+        mSensorManager.registerListener(sensorEventListener, sensor1b, 10000);
+        mSensorManager.registerListener(sensorEventListener, sensor1c, 10000);
         mSensorManager.registerListener(sensorEventListener, sensor2, 10000);
         mSensorManager.registerListener(sensorEventListener, sensor3, 10000);
 
@@ -247,7 +322,7 @@ public class MainActivity extends AppCompatActivity {
 
                 s += "== Logging State == \n";
                 s += "isLogging?  " + isLogging + " \n";
-                s += "isUploaded?  " + isUploaded + " \n";
+                s += "isUploaded?  " + uploadState + " \n";
                 s += "\n";
                 s += "== Sensor Frequency == \n";
                 s += myLogger.getFreqStr();
@@ -256,7 +331,8 @@ public class MainActivity extends AppCompatActivity {
                 s += "LogFileName: " + logname + "\n";
                 s += "Time(ms): " + getTimeFromStart() + "\n";
                 s += "Log Size: " + myLogger.getLogSize() + "\n";
-
+                s += "\n";
+                s += globalinfo + "\n";
 
                 //s += "T(ms): " + getTimeFromStart() + "\n";
 
@@ -304,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public String getDate() {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-hh-mm-ss");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
         Date currentTime = Calendar.getInstance().getTime();
 
         return dateFormat.format(currentTime);
@@ -318,6 +394,7 @@ public class MainActivity extends AppCompatActivity {
 
         Hashtable lastts = new Hashtable();
         Hashtable freq = new Hashtable();
+
 
         public MyLogger() {
             Log.v("hst",">>>???<<<");
